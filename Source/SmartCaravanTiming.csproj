@@ -14,6 +14,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>..\1.6\Assemblies\</OutputPath>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

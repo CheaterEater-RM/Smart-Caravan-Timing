@@ -1,11 +1,9 @@
-using Verse;
+using RimWorld;
 using UnityEngine;
+using Verse;
 
 namespace SmartCaravanTiming
 {
-    /// <summary>
-    /// The three gizmo modes for each caravan.
-    /// </summary>
     public enum CaravanMode
     {
         Normal = 0,
@@ -15,37 +13,33 @@ namespace SmartCaravanTiming
 
     public class SCTSettings : ModSettings
     {
-        // ── Push On settings ────────────────────────────────────────────
-        /// <summary>Hours from destination within which Push On skips rest.</summary>
+        // ── Push On ──────────────────────────────────────────────────────
         public float pushOnHours = 4f;
 
-        // ── Arrive Ready settings ───────────────────────────────────────
-        /// <summary>Hours from destination at which Arrive Ready triggers a stop.</summary>
+        // ── Arrive Ready ─────────────────────────────────────────────────
         public float prepareHours = 6f;
 
-        // Need toggles and thresholds
         public bool enableSleep = true;
         public float restThreshold = 0.80f;
         public bool enableFood = true;
         public float foodThreshold = 0.60f;
-        public bool enableRec = false;
+        public bool enableRec = false;          // set to true at first load if CR active
         public float recThreshold = 0.50f;
 
         // Arrival time window
         public bool enableArrivalWindow = true;
-        /// <summary>Earliest hour to arrive (0-23). Default 6 = 6 AM.</summary>
         public float arrivalWindowStart = 6f;
-        /// <summary>Latest hour to arrive (0-23). Default 18 = 6 PM.</summary>
         public float arrivalWindowEnd = 18f;
 
         // Readiness check
-        /// <summary>If true, ALL pawns must meet thresholds. If false, use percentage.</summary>
         public bool requireAllPawns = true;
-        /// <summary>Percentage of pawns that must meet thresholds (0-1). Only used if requireAllPawns is false.</summary>
         public float readinessPercent = 0.75f;
 
         // Default mode for newly formed caravans
         public CaravanMode defaultMode = CaravanMode.Normal;
+
+        // Internal: tracks whether we've ever saved, so we can set CR default on first load
+        private bool initialised = false;
 
         public override void ExposeData()
         {
@@ -63,7 +57,16 @@ namespace SmartCaravanTiming
             Scribe_Values.Look(ref requireAllPawns, "requireAllPawns", true);
             Scribe_Values.Look(ref readinessPercent, "readinessPercent", 0.75f);
             Scribe_Values.Look(ref defaultMode, "defaultMode", CaravanMode.Normal);
+            Scribe_Values.Look(ref initialised, "initialised", false);
             base.ExposeData();
+
+            // On the very first load (no saved config yet), enable recreation if CR is active
+            if (!initialised)
+            {
+                initialised = true;
+                if (ModsConfig.IsActive("CheaterEater.CaravanRecreation"))
+                    enableRec = true;
+            }
         }
     }
 
@@ -71,120 +74,226 @@ namespace SmartCaravanTiming
     {
         public static SCTSettings Settings;
 
+        // Per-field buffer strings for text entry boxes
+        private string _pushOnBuf;
+        private string _prepareBuf;
+        private string _restBuf;
+        private string _foodBuf;
+        private string _recBuf;
+        private string _windowStartBuf;
+        private string _windowEndBuf;
+        private string _readinessBuf;
+
         public SCTMod(ModContentPack content) : base(content)
         {
             Settings = GetSettings<SCTSettings>();
         }
 
-        public override string SettingsCategory()
-        {
-            return "SCT_SettingsTitle".Translate();
-        }
+        public override string SettingsCategory() => "SCT_SettingsTitle".Translate();
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
-            Listing_Standard listing = new Listing_Standard();
-            listing.Begin(inRect);
+            // Initialise buffers from current values on first draw
+            _pushOnBuf      ??= Settings.pushOnHours.ToString("F1");
+            _prepareBuf     ??= Settings.prepareHours.ToString("F1");
+            _restBuf        ??= Mathf.RoundToInt(Settings.restThreshold * 100f).ToString();
+            _foodBuf        ??= Mathf.RoundToInt(Settings.foodThreshold * 100f).ToString();
+            _recBuf         ??= Mathf.RoundToInt(Settings.recThreshold * 100f).ToString();
+            _windowStartBuf ??= Settings.arrivalWindowStart.ToString("F0");
+            _windowEndBuf   ??= Settings.arrivalWindowEnd.ToString("F0");
+            _readinessBuf   ??= Mathf.RoundToInt(Settings.readinessPercent * 100f).ToString();
 
-            // ── Push On ─────────────────────────────────────────────────
-            listing.Label("SCT_Settings_Header_PushOn".Translate());
-            listing.Label("SCT_Settings_PushOnHours".Translate() + ": " + Settings.pushOnHours.ToString("F1") + "h");
-            Settings.pushOnHours = listing.Slider(Settings.pushOnHours, 1f, 24f);
+            bool hasCaravanRec = ModsConfig.IsActive("CheaterEater.CaravanRecreation");
 
-            listing.GapLine();
+            // Split into two columns with a small gutter
+            float gutter = 16f;
+            float colWidth = (inRect.width - gutter) / 2f;
+            Rect leftCol  = new Rect(inRect.x, inRect.y, colWidth, inRect.height);
+            Rect rightCol = new Rect(inRect.x + colWidth + gutter, inRect.y, colWidth, inRect.height);
 
-            // ── Arrive Ready ────────────────────────────────────────────
-            listing.Label("SCT_Settings_Header_ArriveReady".Translate());
-            listing.Label("SCT_Settings_PrepareHours".Translate() + ": " + Settings.prepareHours.ToString("F1") + "h");
-            Settings.prepareHours = listing.Slider(Settings.prepareHours, 1f, 24f);
+            // ── LEFT COLUMN ────────────────────────────────────────────
+            var left = new Listing_Standard();
+            left.Begin(leftCol);
 
-            listing.Gap();
+            SectionHeader(left, "SCT_Settings_Header_PushOn".Translate());
+            FloatEntryRow(left, "SCT_Settings_PushOnHours".Translate(), "h",
+                ref Settings.pushOnHours, ref _pushOnBuf, 0.5f, 48f);
+
+            left.GapLine();
+
+            SectionHeader(left, "SCT_Settings_Header_ArriveReady".Translate());
+            FloatEntryRow(left, "SCT_Settings_PrepareHours".Translate(), "h",
+                ref Settings.prepareHours, ref _prepareBuf, 0.5f, 48f);
+
+            left.Gap();
 
             // Sleep
-            listing.CheckboxLabeled("SCT_Settings_EnableSleep".Translate(), ref Settings.enableSleep);
-            if (Settings.enableSleep)
-            {
-                listing.Label("  " + "SCT_Settings_RestThreshold".Translate() + ": " + Settings.restThreshold.ToStringPercent());
-                Settings.restThreshold = listing.Slider(Settings.restThreshold, 0.3f, 1f);
-            }
+            left.CheckboxLabeled("SCT_Settings_EnableSleep".Translate(), ref Settings.enableSleep);
+            using (new DisabledBlock(!Settings.enableSleep))
+                PercentEntryRow(left, "SCT_Settings_RestThreshold".Translate(),
+                    ref Settings.restThreshold, ref _restBuf, 10, 100);
 
-            listing.Gap();
+            left.Gap();
 
             // Food
-            listing.CheckboxLabeled("SCT_Settings_EnableFood".Translate(), ref Settings.enableFood);
-            if (Settings.enableFood)
-            {
-                listing.Label("  " + "SCT_Settings_FoodThreshold".Translate() + ": " + Settings.foodThreshold.ToStringPercent());
-                Settings.foodThreshold = listing.Slider(Settings.foodThreshold, 0.2f, 1f);
-            }
+            left.CheckboxLabeled("SCT_Settings_EnableFood".Translate(), ref Settings.enableFood);
+            using (new DisabledBlock(!Settings.enableFood))
+                PercentEntryRow(left, "SCT_Settings_FoodThreshold".Translate(),
+                    ref Settings.foodThreshold, ref _foodBuf, 10, 100);
 
-            listing.Gap();
+            left.Gap();
 
-            // Recreation (requires Caravan Recreation mod)
-            bool hasCaravanRec = ModsConfig.IsActive("CheaterEater.CaravanRecreation");
+            // Recreation
             if (hasCaravanRec)
             {
-                listing.CheckboxLabeled("SCT_Settings_EnableRec".Translate(), ref Settings.enableRec);
-                if (Settings.enableRec)
-                {
-                    listing.Label("  " + "SCT_Settings_RecThreshold".Translate() + ": " + Settings.recThreshold.ToStringPercent());
-                    Settings.recThreshold = listing.Slider(Settings.recThreshold, 0.2f, 1f);
-                }
+                left.CheckboxLabeled("SCT_Settings_EnableRec".Translate(), ref Settings.enableRec);
+                using (new DisabledBlock(!Settings.enableRec))
+                    PercentEntryRow(left, "SCT_Settings_RecThreshold".Translate(),
+                        ref Settings.recThreshold, ref _recBuf, 10, 100);
             }
             else
             {
+                GUI.color = Color.gray;
+                left.Label("SCT_Settings_RecRequiresMod".Translate());
+                GUI.color = Color.white;
                 Settings.enableRec = false;
-                listing.Label("SCT_Settings_RecRequiresMod".Translate());
             }
 
-            listing.GapLine();
+            left.End();
 
-            // Arrival time window
-            listing.CheckboxLabeled("SCT_Settings_EnableArrivalWindow".Translate(), ref Settings.enableArrivalWindow);
-            if (Settings.enableArrivalWindow)
+            // ── RIGHT COLUMN ───────────────────────────────────────────
+            var right = new Listing_Standard();
+            right.Begin(rightCol);
+
+            SectionHeader(right, "SCT_Settings_Header_ArrivalWindow".Translate());
+            right.CheckboxLabeled("SCT_Settings_EnableArrivalWindow".Translate(), ref Settings.enableArrivalWindow);
+
+            using (new DisabledBlock(!Settings.enableArrivalWindow))
             {
-                listing.Label("  " + "SCT_Settings_ArrivalWindowStart".Translate() + ": " + FormatHour(Settings.arrivalWindowStart));
-                Settings.arrivalWindowStart = Mathf.Round(listing.Slider(Settings.arrivalWindowStart, 0f, 23f));
-                listing.Label("  " + "SCT_Settings_ArrivalWindowEnd".Translate() + ": " + FormatHour(Settings.arrivalWindowEnd));
-                Settings.arrivalWindowEnd = Mathf.Round(listing.Slider(Settings.arrivalWindowEnd, 0f, 23f));
+                HourEntryRow(right, "SCT_Settings_ArrivalWindowStart".Translate(),
+                    ref Settings.arrivalWindowStart, ref _windowStartBuf);
+                HourEntryRow(right, "SCT_Settings_ArrivalWindowEnd".Translate(),
+                    ref Settings.arrivalWindowEnd, ref _windowEndBuf);
             }
 
-            listing.GapLine();
+            right.GapLine();
 
-            // Readiness check
-            listing.Label("SCT_Settings_Header_Readiness".Translate());
-            listing.CheckboxLabeled("SCT_Settings_RequireAllPawns".Translate(), ref Settings.requireAllPawns);
-            if (!Settings.requireAllPawns)
-            {
-                listing.Label("  " + "SCT_Settings_ReadinessPercent".Translate() + ": " + Settings.readinessPercent.ToStringPercent());
-                Settings.readinessPercent = listing.Slider(Settings.readinessPercent, 0.25f, 1f);
-            }
+            SectionHeader(right, "SCT_Settings_Header_Readiness".Translate());
+            right.CheckboxLabeled("SCT_Settings_RequireAllPawns".Translate(), ref Settings.requireAllPawns);
 
-            listing.GapLine();
+            using (new DisabledBlock(Settings.requireAllPawns))
+                PercentEntryRow(right, "SCT_Settings_ReadinessPercent".Translate(),
+                    ref Settings.readinessPercent, ref _readinessBuf, 25, 100);
 
-            // Default mode
-            string modeLabel;
-            switch (Settings.defaultMode)
+            right.GapLine();
+
+            // Default mode cycle button
+            string modeLabel = Settings.defaultMode switch
             {
-                case CaravanMode.PushOn: modeLabel = "SCT_Mode_PushOn".Translate(); break;
-                case CaravanMode.ArriveReady: modeLabel = "SCT_Mode_ArriveReady".Translate(); break;
-                default: modeLabel = "SCT_Mode_Normal".Translate(); break;
-            }
-            if (listing.ButtonTextLabeled("SCT_Settings_DefaultMode".Translate(), modeLabel))
-            {
+                CaravanMode.PushOn      => "SCT_Mode_PushOn".Translate(),
+                CaravanMode.ArriveReady => "SCT_Mode_ArriveReady".Translate(),
+                _                       => "SCT_Mode_Normal".Translate()
+            };
+            if (right.ButtonTextLabeled("SCT_Settings_DefaultMode".Translate(), modeLabel))
                 Settings.defaultMode = (CaravanMode)(((int)Settings.defaultMode + 1) % 3);
-            }
 
-            listing.End();
+            right.End();
+        }
+
+        // ── UI helpers ────────────────────────────────────────────────
+
+        private static void SectionHeader(Listing_Standard listing, string text)
+        {
+            Text.Font = GameFont.Small;
+            GUI.color = new Color(0.8f, 0.85f, 1f);
+            listing.Label(text);
+            GUI.color = Color.white;
+        }
+
+        /// <summary>One row: label on left, value+unit text box on right.</summary>
+        private static void FloatEntryRow(Listing_Standard listing, string label, string unit,
+            ref float value, ref string buffer, float min, float max)
+        {
+            Rect row = listing.GetRect(Text.LineHeight);
+            float boxWidth = 52f;
+            Rect labelRect = new Rect(row.x, row.y, row.width - boxWidth - 4f, row.height);
+            Rect boxRect   = new Rect(row.xMax - boxWidth, row.y, boxWidth, row.height);
+
+            Widgets.Label(labelRect, label);
+            buffer = Widgets.TextField(boxRect, buffer);
+            if (float.TryParse(buffer, out float parsed))
+                value = Mathf.Clamp(parsed, min, max);
+
+            // Append unit hint in grey to the right of the box — just nudge label
+            // (unit shown inside the buffer string is fine; label suffix is cleaner)
+            Rect unitRect = new Rect(boxRect.xMax + 2f, row.y, 20f, row.height);
+            GUI.color = Color.gray;
+            Widgets.Label(unitRect, unit);
+            GUI.color = Color.white;
+
+            listing.Gap(2f);
+        }
+
+        /// <summary>Percent row: value stored as 0–1 float, displayed/entered as 0–100 int.</summary>
+        private static void PercentEntryRow(Listing_Standard listing, string label,
+            ref float value, ref string buffer, int minPct, int maxPct)
+        {
+            Rect row = listing.GetRect(Text.LineHeight);
+            float boxWidth = 44f;
+            Rect labelRect = new Rect(row.x, row.y, row.width - boxWidth - 14f, row.height);
+            Rect boxRect   = new Rect(row.xMax - boxWidth - 12f, row.y, boxWidth, row.height);
+            Rect pctRect   = new Rect(boxRect.xMax + 2f, row.y, 12f, row.height);
+
+            Widgets.Label(labelRect, label);
+            buffer = Widgets.TextField(boxRect, buffer);
+            if (int.TryParse(buffer, out int parsed))
+                value = Mathf.Clamp(parsed, minPct, maxPct) / 100f;
+
+            GUI.color = Color.gray;
+            Widgets.Label(pctRect, "%");
+            GUI.color = Color.white;
+
+            listing.Gap(2f);
+        }
+
+        /// <summary>Hour row: 0–23, displays formatted AM/PM label alongside entry.</summary>
+        private static void HourEntryRow(Listing_Standard listing, string label,
+            ref float value, ref string buffer)
+        {
+            Rect row = listing.GetRect(Text.LineHeight);
+            float boxWidth  = 36f;
+            float ampmWidth = 52f;
+            Rect labelRect = new Rect(row.x, row.y, row.width - boxWidth - ampmWidth - 8f, row.height);
+            Rect boxRect   = new Rect(row.xMax - boxWidth - ampmWidth - 4f, row.y, boxWidth, row.height);
+            Rect ampmRect  = new Rect(boxRect.xMax + 4f, row.y, ampmWidth, row.height);
+
+            Widgets.Label(labelRect, label);
+            buffer = Widgets.TextField(boxRect, buffer);
+            if (int.TryParse(buffer, out int parsed))
+                value = Mathf.Clamp(parsed, 0, 23);
+
+            GUI.color = Color.gray;
+            Widgets.Label(ampmRect, FormatHour(value));
+            GUI.color = Color.white;
+
+            listing.Gap(2f);
         }
 
         private static string FormatHour(float hour)
         {
             int h = Mathf.FloorToInt(hour);
-            if (h == 0) return "12 AM";
-            if (h < 12) return h + " AM";
+            if (h == 0)  return "12 AM";
+            if (h < 12)  return h + " AM";
             if (h == 12) return "12 PM";
             return (h - 12) + " PM";
+        }
+
+        /// <summary>RAII helper that sets GUI.enabled for a block and restores it.</summary>
+        private readonly struct DisabledBlock : System.IDisposable
+        {
+            private readonly bool _prev;
+            public DisabledBlock(bool disable) { _prev = GUI.enabled; if (disable) GUI.enabled = false; }
+            public void Dispose() { GUI.enabled = _prev; }
         }
     }
 }
