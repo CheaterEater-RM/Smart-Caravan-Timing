@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+    <n>Smart Caravan Timing</n>
+    <author>CheaterEater</author>
+    <supportedVersions>
+        <li>1.5</li>
+        <li>1.6</li>
+    </supportedVersions>
+    <packageId>CheaterEater.SmartCaravanTiming</packageId>
+    <description>Take control of how your caravans handle the final stretch of their journey.
+
+Adds a three-mode cycle button to each caravan:
+
+[Normal] — Vanilla caravan behavior.
+
+[Push On] — When within a configurable number of hours from the destination, the caravan ignores rest stops and pushes straight through. No more "we're one hour from home but it's nap time."
+
+[Arrive Ready] — The caravan automatically pauses before reaching its destination to fulfill needs first. Pawns will sleep, eat, and recreate until thresholds are met, and can be configured to only arrive during preferred hours (e.g. not at night). Your colonists arrive fresh and ready to fight or explore.
+
+All thresholds, arrival time windows, and trigger distances are configurable in mod settings. Mode is set per-caravan and persists in your save.</description>
+    <modDependencies>
+        <li>
+            <packageId>brrainz.harmony</packageId>
+            <displayName>Harmony</displayName>
+            <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+        </li>
+    </modDependencies>
+    <loadAfter>
+        <li>brrainz.harmony</li>
+        <li>Ludeon.RimWorld</li>
+    </loadAfter>
+</ModMetaData>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+    <!-- Gizmo cycle labels -->
+    <SCT_Mode_Normal>Normal</SCT_Mode_Normal>
+    <SCT_Mode_Normal_Desc>Vanilla caravan behavior. The caravan rests and travels as usual.</SCT_Mode_Normal_Desc>
+    <SCT_Mode_PushOn>Push On</SCT_Mode_PushOn>
+    <SCT_Mode_PushOn_Desc>When within {0} hours of the destination, skip rest stops and push straight through.</SCT_Mode_PushOn_Desc>
+    <SCT_Mode_ArriveReady>Arrive Ready</SCT_Mode_ArriveReady>
+    <SCT_Mode_ArriveReady_Desc>Pause before arrival to fulfill needs. Pawns will sleep, eat, and recreate before proceeding.</SCT_Mode_ArriveReady_Desc>
+
+    <!-- Inspect pane status -->
+    <SCT_Inspect_PushingOn>Pushing on — {0}h to destination</SCT_Inspect_PushingOn>
+    <SCT_Inspect_Preparing>Preparing before arrival</SCT_Inspect_Preparing>
+    <SCT_Inspect_Sleeping>Preparing: {0} need rest</SCT_Inspect_Sleeping>
+    <SCT_Inspect_Eating>Preparing: {0} need food</SCT_Inspect_Eating>
+    <SCT_Inspect_Recreating>Preparing: {0} need recreation</SCT_Inspect_Recreating>
+    <SCT_Inspect_WaitingArrivalWindow>Preparing: waiting for preferred arrival time</SCT_Inspect_WaitingArrivalWindow>
+    <SCT_Inspect_Ready>Prepared — resuming travel</SCT_Inspect_Ready>
+
+    <!-- Messages -->
+    <SCT_Msg_NowPushing>{0} is pushing on through to the destination.</SCT_Msg_NowPushing>
+    <SCT_Msg_Stopping>{0} is stopping to prepare before arrival.</SCT_Msg_Stopping>
+    <SCT_Msg_Resuming>{0} is prepared and resuming travel.</SCT_Msg_Resuming>
+
+    <!-- Settings -->
+    <SCT_SettingsTitle>Smart Caravan Timing</SCT_SettingsTitle>
+
+    <SCT_Settings_Header_PushOn>— Push On —</SCT_Settings_Header_PushOn>
+    <SCT_Settings_PushOnHours>Push On: ignore rest within this many hours of destination</SCT_Settings_PushOnHours>
+
+    <SCT_Settings_Header_ArriveReady>— Arrive Ready —</SCT_Settings_Header_ArriveReady>
+    <SCT_Settings_PrepareHours>Begin preparing this many hours before destination</SCT_Settings_PrepareHours>
+
+    <SCT_Settings_EnableSleep>Check rest need</SCT_Settings_EnableSleep>
+    <SCT_Settings_RestThreshold>Minimum rest level</SCT_Settings_RestThreshold>
+    <SCT_Settings_EnableFood>Check food need</SCT_Settings_EnableFood>
+    <SCT_Settings_FoodThreshold>Minimum food level</SCT_Settings_FoodThreshold>
+    <SCT_Settings_EnableRec>Check recreation need</SCT_Settings_EnableRec>
+    <SCT_Settings_RecThreshold>Minimum recreation level</SCT_Settings_RecThreshold>
+    <SCT_Settings_RecRequiresMod>Recreation check requires Caravan Recreation mod</SCT_Settings_RecRequiresMod>
+
+    <SCT_Settings_EnableArrivalWindow>Restrict arrival to preferred hours</SCT_Settings_EnableArrivalWindow>
+    <SCT_Settings_ArrivalWindowStart>Earliest arrival hour</SCT_Settings_ArrivalWindowStart>
+    <SCT_Settings_ArrivalWindowEnd>Latest arrival hour</SCT_Settings_ArrivalWindowEnd>
+
+    <SCT_Settings_Header_Readiness>— Readiness Check —</SCT_Settings_Header_Readiness>
+    <SCT_Settings_RequireAllPawns>All pawns must meet thresholds</SCT_Settings_RequireAllPawns>
+    <SCT_Settings_ReadinessPercent>Percentage of pawns that must be ready</SCT_Settings_ReadinessPercent>
+
+    <SCT_Settings_DefaultMode>Default mode for new caravans</SCT_Settings_DefaultMode>
+</LanguageData>

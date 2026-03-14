@@ -1,0 +1,19 @@
+# Build output
+1.6/Assemblies/*.pdb
+
+# Visual Studio
+.vs/
+Source/.vs/
+Source/**/obj/
+Source/**/*.user
+Source/**/bin/
+
+# NuGet
+*.nupkg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.old
