@@ -12,24 +12,9 @@ Adds a three-mode cycle button to each caravan:
 
 All thresholds, arrival time windows, and trigger distances are configurable in mod settings. Mode is set per-caravan and persists in your save.
 
-## Requirements
-
-- [Harmony](https://steamcommunity.com/sharedfiles/filedetails/?id=2009463077) (must load before Core)
-- RimWorld 1.5 or 1.6
-
 ## Optional
 
-- [Caravan Recreation](link) — enables the recreation readiness check in Arrive Ready mode. Without this mod, recreation is too limited in vanilla caravans to be useful.
-
-## Installation
-
-Subscribe on Steam Workshop, or place the `Smart_Caravan_Timing` folder in your RimWorld `Mods` directory.
-
-## Building from Source
-
-1. Ensure `RimWorld.Paths.props` exists one directory above this repo with `$(RimWorldManaged)` and `$(HarmonyAssemblies)` defined.
-2. Open `Source\SmartCaravanTiming.sln` in Visual Studio.
-3. Build (Ctrl+Shift+B). Output lands in `1.6\Assemblies\SmartCaravanTiming.dll`.
+**[Caravan Recreation]** — enables the recreation readiness check in Arrive Ready mode. Without this mod, recreation is too limited in vanilla caravans to be useful.
 
 ## License
 
