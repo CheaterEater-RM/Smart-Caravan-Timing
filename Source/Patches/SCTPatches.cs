@@ -61,13 +61,12 @@ namespace SmartCaravanTiming
     }
 
     // ================================================================
-    // PATCH 3: Per-caravan rest schedule + Push On suppression
+    // PATCH 3: Push On suppression via RestingNowAt
     // ================================================================
     //
-    // RestingNowAt calls WouldBeRestingAt — by the time we're here the
-    // global window patch has already run, so __result reflects the
-    // (possibly modified) vanilla window. We then layer per-caravan
-    // overrides on top.
+    // Only handles Push On here. Per-caravan schedule logic (AlteredSchedule,
+    // NoResting) is handled in Patch_NightResting where we have caravan context
+    // and can both suppress AND force rest correctly.
 
     [HarmonyPatch(typeof(CaravanNightRestUtility), "RestingNowAt")]
     internal static class Patch_RestingNowAt
@@ -75,45 +74,40 @@ namespace SmartCaravanTiming
         [HarmonyPostfix]
         public static void Postfix(PlanetTile tile, ref bool __result)
         {
+            if (!__result) return;
+
             SCTTracker tracker = Find.World?.GetComponent<SCTTracker>();
             if (tracker == null) return;
 
-            try
+            foreach (Caravan caravan in Find.WorldObjects.Caravans)
             {
-                float hour = GenDate.HourFloat(
-                    GenTicks.TicksAbs,
-                    Find.WorldGrid.LongLatOf(tile).x);
+                if (caravan.Faction != Faction.OfPlayer) continue;
+                if (caravan.Tile.tileId != tile.tileId) continue;
 
-                foreach (Caravan caravan in Find.WorldObjects.Caravans)
+                if (tracker.ShouldSuppressRest(caravan))
                 {
-                    if (caravan.Faction != Faction.OfPlayer) continue;
-                    if (caravan.Tile.tileId != tile.tileId) continue;
-
-                    // Push On suppression (existing behaviour)
-                    if (tracker.ShouldSuppressRest(caravan))
-                    {
-                        __result = false;
-                        return;
-                    }
-
-                    // Rest schedule gizmo suppression
-                    // Note: if __result is already false (not a rest period by the
-                    // global window) and the caravan is in AlteredSchedule mode that
-                    // WANTS rest now, we still don't force rest — we only suppress it.
-                    if (__result && tracker.ShouldSuppressRestForSchedule(caravan, hour))
-                    {
-                        __result = false;
-                        return;
-                    }
+                    __result = false;
+                    return;
                 }
             }
-            catch { }
         }
     }
 
     // ================================================================
-    // PATCH 4: Make Arrive Ready preparation act like night rest
+    // PATCH 4: NightResting — Arrive Ready prep + rest schedule
     // ================================================================
+    //
+    // This is the right place for per-caravan schedule overrides because
+    // __instance gives us caravan context, so we can both suppress rest
+    // (NoResting, outside AlteredSchedule window) AND force rest
+    // (inside AlteredSchedule window when vanilla says no).
+    //
+    // Arrive Ready preparation always takes priority over schedule modes.
+    // Priority order:
+    //   1. Arrive Ready preparing  -> force rest (existing)
+    //   2. NoResting               -> suppress rest unconditionally
+    //   3. AlteredSchedule         -> rest iff within the custom window
+    //   4. Normal                  -> leave __result as-is (vanilla/global window)
 
     [HarmonyPatch(typeof(Caravan), "get_NightResting")]
     internal static class Patch_NightResting
@@ -121,14 +115,44 @@ namespace SmartCaravanTiming
         [HarmonyPostfix]
         public static void Postfix(Caravan __instance, ref bool __result)
         {
-            if (__result) return;
             if (__instance.Faction != Faction.OfPlayer) return;
 
             SCTTracker tracker = Find.World?.GetComponent<SCTTracker>();
             if (tracker == null) return;
 
+            // Arrive Ready preparation overrides everything — force rest
             if (tracker.IsPreparing(__instance))
+            {
                 __result = true;
+                return;
+            }
+
+            // Per-caravan rest schedule
+            RestScheduleMode schedule = tracker.GetRestSchedule(__instance);
+            if (schedule == RestScheduleMode.Normal) return; // leave vanilla result
+
+            try
+            {
+                float hour = GenDate.HourFloat(
+                    GenTicks.TicksAbs,
+                    Find.WorldGrid.LongLatOf(__instance.Tile).x);
+
+                switch (schedule)
+                {
+                    case RestScheduleMode.NoResting:
+                        __result = false;
+                        break;
+
+                    case RestScheduleMode.AlteredSchedule:
+                        // Rest if and only if we are inside the custom window
+                        __result = SCTSettings.IsRestHour(
+                            hour,
+                            SCTMod.Settings.alteredRestStart,
+                            SCTMod.Settings.alteredRestEnd);
+                        break;
+                }
+            }
+            catch { /* leave __result unchanged on error */ }
         }
     }
 

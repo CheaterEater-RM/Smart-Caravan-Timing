@@ -105,28 +105,6 @@ namespace SmartCaravanTiming
             SetRestSchedule(caravan, next);
         }
 
-        /// <summary>
-        /// Returns true if this caravan should NOT rest right now based on its
-        /// rest schedule mode. Arrive Ready preparation always overrides this.
-        /// </summary>
-        public bool ShouldSuppressRestForSchedule(Caravan caravan, float hour)
-        {
-            // Arrive Ready preparation takes priority — never suppress during prep
-            if (IsPreparing(caravan)) return false;
-
-            RestScheduleMode schedule = GetRestSchedule(caravan);
-            switch (schedule)
-            {
-                case RestScheduleMode.NoResting:
-                    return true;
-                case RestScheduleMode.AlteredSchedule:
-                    // Suppress rest if we are NOT in the altered rest window
-                    return !SCTSettings.IsRestHour(hour, SCTMod.Settings.alteredRestStart, SCTMod.Settings.alteredRestEnd);
-                default:
-                    return false;
-            }
-        }
-
         public bool ShouldSuppressRest(Caravan caravan)
         {
             if (GetMode(caravan) != CaravanMode.PushOn) return false;
