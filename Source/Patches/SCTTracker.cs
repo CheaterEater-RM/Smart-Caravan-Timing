@@ -13,6 +13,7 @@ namespace SmartCaravanTiming
         private Dictionary<int, bool> preparingMap = new Dictionary<int, bool>();
         private Dictionary<int, bool> overrideMap = new Dictionary<int, bool>();
         private Dictionary<int, int> prepStartTickMap = new Dictionary<int, int>();
+        private Dictionary<int, RestScheduleMode> restScheduleMap = new Dictionary<int, RestScheduleMode>();
 
         private List<int> modeKeys = new List<int>();
         private List<CaravanMode> modeValues = new List<CaravanMode>();
@@ -20,6 +21,8 @@ namespace SmartCaravanTiming
         private List<bool> preparingValues = new List<bool>();
         private List<int> overrideKeys = new List<int>();
         private List<bool> overrideValues = new List<bool>();
+        private List<int> restScheduleKeys = new List<int>();
+        private List<RestScheduleMode> restScheduleValues = new List<RestScheduleMode>();
 
         /// <summary>Ticks before recreation is considered stalled. 5000 = 2 game-hours.</summary>
         private const int RecreationStallTicks = 5000;
@@ -78,6 +81,50 @@ namespace SmartCaravanTiming
         public bool IsOverridden(Caravan caravan)
         {
             return overrideMap.TryGetValue(caravan.ID, out bool val) && val;
+        }
+
+        public RestScheduleMode GetRestSchedule(Caravan caravan)
+        {
+            // If the feature is disabled globally, always report Normal (vanilla fallback)
+            if (!SCTMod.Settings.enableRestSchedule)
+                return RestScheduleMode.Normal;
+            if (restScheduleMap.TryGetValue(caravan.ID, out RestScheduleMode mode))
+                return mode;
+            return SCTMod.Settings.defaultRestSchedule;
+        }
+
+        public void SetRestSchedule(Caravan caravan, RestScheduleMode mode)
+        {
+            restScheduleMap[caravan.ID] = mode;
+        }
+
+        public void CycleRestSchedule(Caravan caravan)
+        {
+            RestScheduleMode current = GetRestSchedule(caravan);
+            RestScheduleMode next = (RestScheduleMode)(((int)current + 1) % 3);
+            SetRestSchedule(caravan, next);
+        }
+
+        /// <summary>
+        /// Returns true if this caravan should NOT rest right now based on its
+        /// rest schedule mode. Arrive Ready preparation always overrides this.
+        /// </summary>
+        public bool ShouldSuppressRestForSchedule(Caravan caravan, float hour)
+        {
+            // Arrive Ready preparation takes priority — never suppress during prep
+            if (IsPreparing(caravan)) return false;
+
+            RestScheduleMode schedule = GetRestSchedule(caravan);
+            switch (schedule)
+            {
+                case RestScheduleMode.NoResting:
+                    return true;
+                case RestScheduleMode.AlteredSchedule:
+                    // Suppress rest if we are NOT in the altered rest window
+                    return !SCTSettings.IsRestHour(hour, SCTMod.Settings.alteredRestStart, SCTMod.Settings.alteredRestEnd);
+                default:
+                    return false;
+            }
         }
 
         public bool ShouldSuppressRest(Caravan caravan)
@@ -345,6 +392,7 @@ namespace SmartCaravanTiming
                 preparingMap.Remove(id);
                 overrideMap.Remove(id);
                 prepStartTickMap.Remove(id);
+                restScheduleMap.Remove(id);
             }
         }
 
@@ -357,11 +405,14 @@ namespace SmartCaravanTiming
                 LookMode.Value, LookMode.Value, ref preparingKeys, ref preparingValues);
             Scribe_Collections.Look(ref overrideMap, "sctOverrideMap",
                 LookMode.Value, LookMode.Value, ref overrideKeys, ref overrideValues);
+            Scribe_Collections.Look(ref restScheduleMap, "sctRestScheduleMap",
+                LookMode.Value, LookMode.Value, ref restScheduleKeys, ref restScheduleValues);
 
             if (modeMap == null) modeMap = new Dictionary<int, CaravanMode>();
             if (preparingMap == null) preparingMap = new Dictionary<int, bool>();
             if (overrideMap == null) overrideMap = new Dictionary<int, bool>();
             if (prepStartTickMap == null) prepStartTickMap = new Dictionary<int, int>();
+            if (restScheduleMap == null) restScheduleMap = new Dictionary<int, RestScheduleMode>();
         }
 
         public override void WorldComponentTick()

@@ -7,7 +7,7 @@
     </supportedVersions>
     <packageId>CheaterEater.SmartCaravanTiming</packageId>
     <description>Take control of how your caravans handle the final stretch of their journey. Push on if close without pausing, or rest before arriving to prepare for an attack.</description>
-	<modVersion>1.0</modVersion>
+	<modVersion>1.01</modVersion>
     <modDependencies>
         <li>
             <packageId>brrainz.harmony</packageId>

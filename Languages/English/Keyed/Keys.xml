@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
-    <!-- Gizmo cycle labels -->
+    <!-- ── Arrival mode gizmo labels ── -->
     <SCT_Mode_Normal>Normal</SCT_Mode_Normal>
     <SCT_Mode_Normal_Desc>Vanilla caravan behavior. The caravan rests and travels as usual.</SCT_Mode_Normal_Desc>
     <SCT_Mode_PushOn>Push On</SCT_Mode_PushOn>
@@ -8,7 +8,15 @@
     <SCT_Mode_ArriveReady>Arrive Ready</SCT_Mode_ArriveReady>
     <SCT_Mode_ArriveReady_Desc>Pause before arrival to fulfill needs. Pawns will sleep, eat, and recreate before proceeding.</SCT_Mode_ArriveReady_Desc>
 
-    <!-- Inspect pane status -->
+    <!-- ── Rest schedule gizmo labels ── -->
+    <SCT_RestMode_Normal>Rest: Normal</SCT_RestMode_Normal>
+    <SCT_RestMode_Normal_Desc>Caravan rests according to the configured rest window.</SCT_RestMode_Normal_Desc>
+    <SCT_RestMode_Altered>Rest: Custom Schedule</SCT_RestMode_Altered>
+    <SCT_RestMode_Altered_Desc>Caravan rests during the custom window ({0}–{1}) instead of the default window.</SCT_RestMode_Altered_Desc>
+    <SCT_RestMode_NoResting>Rest: No Resting</SCT_RestMode_NoResting>
+    <SCT_RestMode_NoResting_Desc>Caravan never stops automatically to rest. Pawns will grow tired but keep moving. You can still order a manual rest stop.</SCT_RestMode_NoResting_Desc>
+
+    <!-- ── Inspect pane status ── -->
     <SCT_Inspect_PushingOn>Pushing on — {0}h to destination</SCT_Inspect_PushingOn>
     <SCT_Inspect_Preparing>Preparing before arrival</SCT_Inspect_Preparing>
     <SCT_Inspect_Sleeping>Preparing: {0} need rest</SCT_Inspect_Sleeping>
@@ -16,13 +24,16 @@
     <SCT_Inspect_Recreating>Preparing: {0} need recreation</SCT_Inspect_Recreating>
     <SCT_Inspect_WaitingArrivalWindow>Preparing: waiting for preferred arrival time</SCT_Inspect_WaitingArrivalWindow>
     <SCT_Inspect_Ready>Prepared — resuming travel</SCT_Inspect_Ready>
+    <SCT_Inspect_Ready_Desc>Force the caravan to proceed immediately, even if needs aren't fully met.</SCT_Inspect_Ready_Desc>
+    <SCT_Inspect_NoResting>Rest schedule: no automatic resting</SCT_Inspect_NoResting>
+    <SCT_Inspect_AlteredSchedule>Rest schedule: {0}–{1}</SCT_Inspect_AlteredSchedule>
 
-    <!-- Messages -->
+    <!-- ── Messages ── -->
     <SCT_Msg_NowPushing>{0} is pushing on through to the destination.</SCT_Msg_NowPushing>
     <SCT_Msg_Stopping>{0} is stopping to prepare before arrival.</SCT_Msg_Stopping>
     <SCT_Msg_Resuming>{0} is prepared and resuming travel.</SCT_Msg_Resuming>
 
-    <!-- Settings -->
+    <!-- ── Settings ── -->
     <SCT_SettingsTitle>Smart Caravan Timing</SCT_SettingsTitle>
 
     <SCT_Settings_Header_PushOn>— Push On —</SCT_Settings_Header_PushOn>
@@ -48,5 +59,14 @@
     <SCT_Settings_RequireAllPawns>All pawns must meet thresholds</SCT_Settings_RequireAllPawns>
     <SCT_Settings_ReadinessPercent>% of pawns required</SCT_Settings_ReadinessPercent>
 
-    <SCT_Settings_DefaultMode>Default mode for new caravans</SCT_Settings_DefaultMode>
+    <SCT_Settings_DefaultMode>Default arrival mode</SCT_Settings_DefaultMode>
+
+    <SCT_Settings_Header_RestSchedule>— Rest Schedule —</SCT_Settings_Header_RestSchedule>
+    <SCT_Settings_VanillaRestWindow>Default rest window (vanilla: 10 PM – 6 AM)</SCT_Settings_VanillaRestWindow>
+    <SCT_Settings_VanillaRestStart>Rest start (0–23)</SCT_Settings_VanillaRestStart>
+    <SCT_Settings_VanillaRestEnd>Rest end (0–23)</SCT_Settings_VanillaRestEnd>
+    <SCT_Settings_EnableRestSchedule>Enable per-caravan rest schedule gizmo</SCT_Settings_EnableRestSchedule>
+    <SCT_Settings_AlteredRestStart>Custom rest start (0–23)</SCT_Settings_AlteredRestStart>
+    <SCT_Settings_AlteredRestEnd>Custom rest end (0–23)</SCT_Settings_AlteredRestEnd>
+    <SCT_Settings_DefaultRestSchedule>Default rest schedule</SCT_Settings_DefaultRestSchedule>
 </LanguageData>

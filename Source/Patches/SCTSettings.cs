@@ -11,6 +11,14 @@ namespace SmartCaravanTiming
         ArriveReady = 2
     }
 
+    /// <summary>Per-caravan rest schedule mode for the second gizmo.</summary>
+    public enum RestScheduleMode
+    {
+        Normal = 0,           // vanilla behaviour (or global window if that's set)
+        AlteredSchedule = 1,  // use the altered rest window from settings
+        NoResting = 2         // never stop for rest automatically
+    }
+
     public class SCTSettings : ModSettings
     {
         // ── Push On ──────────────────────────────────────────────────────
@@ -23,7 +31,7 @@ namespace SmartCaravanTiming
         public float restThreshold = 0.80f;
         public bool enableFood = true;
         public float foodThreshold = 0.60f;
-        public bool enableRec = false;          // set to true at first load if CR active
+        public bool enableRec = false;
         public float recThreshold = 0.50f;
 
         // Arrival time window
@@ -38,7 +46,26 @@ namespace SmartCaravanTiming
         // Default mode for newly formed caravans
         public CaravanMode defaultMode = CaravanMode.Normal;
 
-        // Internal: tracks whether we've ever saved, so we can set CR default on first load
+        // ── Global vanilla rest window override (always active) ───────────
+        // Vanilla: rest starts at 22:00, wakes at 06:00.
+        public float vanillaRestStart = 22f;
+        public float vanillaRestEnd   = 6f;
+
+        // ── Rest Schedule gizmo ───────────────────────────────────────────
+        /// <summary>Whether the rest schedule gizmo is enabled at all.</summary>
+        public bool enableRestSchedule = false;
+
+        /// <summary>
+        /// The altered rest window used by caravans in AlteredSchedule mode.
+        /// Stored as start/end hour (0–23). Wraps midnight correctly.
+        /// </summary>
+        public float alteredRestStart = 6f;   // default: rest during day (6 AM–2 PM)
+        public float alteredRestEnd   = 14f;
+
+        /// <summary>Default rest schedule mode assigned to new caravans.</summary>
+        public RestScheduleMode defaultRestSchedule = RestScheduleMode.Normal;
+
+        // Internal: first-load flag for CR default
         private bool initialised = false;
 
         public override void ExposeData()
@@ -57,10 +84,15 @@ namespace SmartCaravanTiming
             Scribe_Values.Look(ref requireAllPawns, "requireAllPawns", true);
             Scribe_Values.Look(ref readinessPercent, "readinessPercent", 0.75f);
             Scribe_Values.Look(ref defaultMode, "defaultMode", CaravanMode.Normal);
+            Scribe_Values.Look(ref vanillaRestStart, "vanillaRestStart", 22f);
+            Scribe_Values.Look(ref vanillaRestEnd,   "vanillaRestEnd",   6f);
+            Scribe_Values.Look(ref enableRestSchedule, "enableRestSchedule", false);
+            Scribe_Values.Look(ref alteredRestStart, "alteredRestStart", 6f);
+            Scribe_Values.Look(ref alteredRestEnd,   "alteredRestEnd",   14f);
+            Scribe_Values.Look(ref defaultRestSchedule, "defaultRestSchedule", RestScheduleMode.Normal);
             Scribe_Values.Look(ref initialised, "initialised", false);
             base.ExposeData();
 
-            // On the very first load (no saved config yet), enable recreation if CR is active
             if (!initialised)
             {
                 initialised = true;
@@ -68,13 +100,39 @@ namespace SmartCaravanTiming
                     enableRec = true;
             }
         }
+
+        /// <summary>
+        /// Returns true if the given hour falls within the vanilla rest window
+        /// (as overridden by the user's global setting).
+        /// </summary>
+        public bool IsVanillaRestHour(float hour)
+        {
+            return IsRestHour(hour, vanillaRestStart, vanillaRestEnd);
+        }
+
+        /// <summary>
+        /// Returns true if the given hour falls within the altered rest window.
+        /// </summary>
+        public bool IsAlteredRestHour(float hour)
+        {
+            return IsRestHour(hour, alteredRestStart, alteredRestEnd);
+        }
+
+        /// <summary>Midnight-wrapping rest window check.</summary>
+        public static bool IsRestHour(float hour, float start, float end)
+        {
+            // Window wraps midnight (e.g. 22–6): rest if hour >= start OR hour < end
+            if (start > end)
+                return hour >= start || hour < end;
+            // Window within same day (e.g. 6–14): rest if start <= hour < end
+            return hour >= start && hour < end;
+        }
     }
 
     public class SCTMod : Mod
     {
         public static SCTSettings Settings;
 
-        // Per-field buffer strings for text entry boxes
         private string _pushOnBuf;
         private string _prepareBuf;
         private string _restBuf;
@@ -83,6 +141,10 @@ namespace SmartCaravanTiming
         private string _windowStartBuf;
         private string _windowEndBuf;
         private string _readinessBuf;
+        private string _vanillaRestStartBuf;
+        private string _vanillaRestEndBuf;
+        private string _alteredRestStartBuf;
+        private string _alteredRestEndBuf;
 
         public SCTMod(ModContentPack content) : base(content)
         {
@@ -93,23 +155,25 @@ namespace SmartCaravanTiming
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
-            // Initialise buffers from current values on first draw
-            _pushOnBuf      ??= Settings.pushOnHours.ToString("F1");
-            _prepareBuf     ??= Settings.prepareHours.ToString("F1");
-            _restBuf        ??= Mathf.RoundToInt(Settings.restThreshold * 100f).ToString();
-            _foodBuf        ??= Mathf.RoundToInt(Settings.foodThreshold * 100f).ToString();
-            _recBuf         ??= Mathf.RoundToInt(Settings.recThreshold * 100f).ToString();
-            _windowStartBuf ??= Settings.arrivalWindowStart.ToString("F0");
-            _windowEndBuf   ??= Settings.arrivalWindowEnd.ToString("F0");
-            _readinessBuf   ??= Mathf.RoundToInt(Settings.readinessPercent * 100f).ToString();
+            _pushOnBuf           ??= Settings.pushOnHours.ToString("F1");
+            _prepareBuf          ??= Settings.prepareHours.ToString("F1");
+            _restBuf             ??= Mathf.RoundToInt(Settings.restThreshold * 100f).ToString();
+            _foodBuf             ??= Mathf.RoundToInt(Settings.foodThreshold * 100f).ToString();
+            _recBuf              ??= Mathf.RoundToInt(Settings.recThreshold * 100f).ToString();
+            _windowStartBuf      ??= Settings.arrivalWindowStart.ToString("F0");
+            _windowEndBuf        ??= Settings.arrivalWindowEnd.ToString("F0");
+            _readinessBuf        ??= Mathf.RoundToInt(Settings.readinessPercent * 100f).ToString();
+            _vanillaRestStartBuf ??= Settings.vanillaRestStart.ToString("F0");
+            _vanillaRestEndBuf   ??= Settings.vanillaRestEnd.ToString("F0");
+            _alteredRestStartBuf ??= Settings.alteredRestStart.ToString("F0");
+            _alteredRestEndBuf   ??= Settings.alteredRestEnd.ToString("F0");
 
             bool hasCaravanRec = ModsConfig.IsActive("CheaterEater.CaravanRecreation");
 
-            // Split into two columns with a small gutter
-            float gutter = 16f;
+            float gutter   = 16f;
             float colWidth = (inRect.width - gutter) / 2f;
-            Rect leftCol  = new Rect(inRect.x, inRect.y, colWidth, inRect.height);
-            Rect rightCol = new Rect(inRect.x + colWidth + gutter, inRect.y, colWidth, inRect.height);
+            Rect leftCol   = new Rect(inRect.x, inRect.y, colWidth, inRect.height);
+            Rect rightCol  = new Rect(inRect.x + colWidth + gutter, inRect.y, colWidth, inRect.height);
 
             // ── LEFT COLUMN ────────────────────────────────────────────
             var left = new Listing_Standard();
@@ -127,7 +191,6 @@ namespace SmartCaravanTiming
 
             left.Gap();
 
-            // Sleep
             left.CheckboxLabeled("SCT_Settings_EnableSleep".Translate(), ref Settings.enableSleep);
             using (new DisabledBlock(!Settings.enableSleep))
                 PercentEntryRow(left, "SCT_Settings_RestThreshold".Translate(),
@@ -135,7 +198,6 @@ namespace SmartCaravanTiming
 
             left.Gap();
 
-            // Food
             left.CheckboxLabeled("SCT_Settings_EnableFood".Translate(), ref Settings.enableFood);
             using (new DisabledBlock(!Settings.enableFood))
                 PercentEntryRow(left, "SCT_Settings_FoodThreshold".Translate(),
@@ -143,7 +205,6 @@ namespace SmartCaravanTiming
 
             left.Gap();
 
-            // Recreation
             if (hasCaravanRec)
             {
                 left.CheckboxLabeled("SCT_Settings_EnableRec".Translate(), ref Settings.enableRec);
@@ -165,9 +226,9 @@ namespace SmartCaravanTiming
             var right = new Listing_Standard();
             right.Begin(rightCol);
 
+            // Arrival window
             SectionHeader(right, "SCT_Settings_Header_ArrivalWindow".Translate());
             right.CheckboxLabeled("SCT_Settings_EnableArrivalWindow".Translate(), ref Settings.enableArrivalWindow);
-
             using (new DisabledBlock(!Settings.enableArrivalWindow))
             {
                 HourEntryRow(right, "SCT_Settings_ArrivalWindowStart".Translate(),
@@ -178,16 +239,16 @@ namespace SmartCaravanTiming
 
             right.GapLine();
 
+            // Readiness check
             SectionHeader(right, "SCT_Settings_Header_Readiness".Translate());
             right.CheckboxLabeled("SCT_Settings_RequireAllPawns".Translate(), ref Settings.requireAllPawns);
-
             using (new DisabledBlock(Settings.requireAllPawns))
                 PercentEntryRow(right, "SCT_Settings_ReadinessPercent".Translate(),
                     ref Settings.readinessPercent, ref _readinessBuf, 25, 100);
 
             right.GapLine();
 
-            // Default mode cycle button
+            // Default arrival mode cycle button
             string modeLabel = Settings.defaultMode switch
             {
                 CaravanMode.PushOn      => "SCT_Mode_PushOn".Translate(),
@@ -197,6 +258,44 @@ namespace SmartCaravanTiming
             if (right.ButtonTextLabeled("SCT_Settings_DefaultMode".Translate(), modeLabel))
                 Settings.defaultMode = (CaravanMode)(((int)Settings.defaultMode + 1) % 3);
 
+            right.GapLine();
+
+            // ── Rest schedule section ──────────────────────────────────
+            SectionHeader(right, "SCT_Settings_Header_RestSchedule".Translate());
+
+            // Global vanilla window override — always active
+            right.Label("SCT_Settings_VanillaRestWindow".Translate());
+            HourEntryRow(right, "SCT_Settings_VanillaRestStart".Translate(),
+                ref Settings.vanillaRestStart, ref _vanillaRestStartBuf);
+            HourEntryRow(right, "SCT_Settings_VanillaRestEnd".Translate(),
+                ref Settings.vanillaRestEnd, ref _vanillaRestEndBuf);
+
+            right.Gap();
+
+            // Per-caravan gizmo toggle
+            right.CheckboxLabeled("SCT_Settings_EnableRestSchedule".Translate(), ref Settings.enableRestSchedule);
+
+            using (new DisabledBlock(!Settings.enableRestSchedule))
+            {
+                // Altered schedule window
+                HourEntryRow(right, "SCT_Settings_AlteredRestStart".Translate(),
+                    ref Settings.alteredRestStart, ref _alteredRestStartBuf);
+                HourEntryRow(right, "SCT_Settings_AlteredRestEnd".Translate(),
+                    ref Settings.alteredRestEnd, ref _alteredRestEndBuf);
+
+                right.Gap();
+
+                // Default rest schedule mode
+                string schedLabel = Settings.defaultRestSchedule switch
+                {
+                    RestScheduleMode.AlteredSchedule => "SCT_RestMode_Altered".Translate(),
+                    RestScheduleMode.NoResting        => "SCT_RestMode_NoResting".Translate(),
+                    _                                 => "SCT_RestMode_Normal".Translate()
+                };
+                if (right.ButtonTextLabeled("SCT_Settings_DefaultRestSchedule".Translate(), schedLabel))
+                    Settings.defaultRestSchedule = (RestScheduleMode)(((int)Settings.defaultRestSchedule + 1) % 3);
+            }
+
             right.End();
         }
 
@@ -204,82 +303,73 @@ namespace SmartCaravanTiming
 
         private static void SectionHeader(Listing_Standard listing, string text)
         {
-            Text.Font = GameFont.Small;
             GUI.color = new Color(0.8f, 0.85f, 1f);
             listing.Label(text);
             GUI.color = Color.white;
         }
 
-        /// <summary>One row: label on left, value+unit text box on right.</summary>
         private static void FloatEntryRow(Listing_Standard listing, string label, string unit,
             ref float value, ref string buffer, float min, float max)
         {
-            Rect row = listing.GetRect(Text.LineHeight);
-            float boxWidth = 52f;
-            Rect labelRect = new Rect(row.x, row.y, row.width - boxWidth - 4f, row.height);
-            Rect boxRect   = new Rect(row.xMax - boxWidth, row.y, boxWidth, row.height);
+            Rect row      = listing.GetRect(Text.LineHeight);
+            float boxW    = 52f;
+            Rect labelR   = new Rect(row.x, row.y, row.width - boxW - 4f, row.height);
+            Rect boxR     = new Rect(row.xMax - boxW, row.y, boxW, row.height);
+            Rect unitR    = new Rect(boxR.xMax + 2f, row.y, 20f, row.height);
 
-            Widgets.Label(labelRect, label);
-            buffer = Widgets.TextField(boxRect, buffer);
+            Widgets.Label(labelR, label);
+            buffer = Widgets.TextField(boxR, buffer);
             if (float.TryParse(buffer, out float parsed))
                 value = Mathf.Clamp(parsed, min, max);
 
-            // Append unit hint in grey to the right of the box — just nudge label
-            // (unit shown inside the buffer string is fine; label suffix is cleaner)
-            Rect unitRect = new Rect(boxRect.xMax + 2f, row.y, 20f, row.height);
             GUI.color = Color.gray;
-            Widgets.Label(unitRect, unit);
+            Widgets.Label(unitR, unit);
             GUI.color = Color.white;
-
             listing.Gap(2f);
         }
 
-        /// <summary>Percent row: value stored as 0–1 float, displayed/entered as 0–100 int.</summary>
         private static void PercentEntryRow(Listing_Standard listing, string label,
             ref float value, ref string buffer, int minPct, int maxPct)
         {
-            Rect row = listing.GetRect(Text.LineHeight);
-            float boxWidth = 44f;
-            Rect labelRect = new Rect(row.x, row.y, row.width - boxWidth - 14f, row.height);
-            Rect boxRect   = new Rect(row.xMax - boxWidth - 12f, row.y, boxWidth, row.height);
-            Rect pctRect   = new Rect(boxRect.xMax + 2f, row.y, 12f, row.height);
+            Rect row    = listing.GetRect(Text.LineHeight);
+            float boxW  = 44f;
+            Rect labelR = new Rect(row.x, row.y, row.width - boxW - 14f, row.height);
+            Rect boxR   = new Rect(row.xMax - boxW - 12f, row.y, boxW, row.height);
+            Rect pctR   = new Rect(boxR.xMax + 2f, row.y, 12f, row.height);
 
-            Widgets.Label(labelRect, label);
-            buffer = Widgets.TextField(boxRect, buffer);
+            Widgets.Label(labelR, label);
+            buffer = Widgets.TextField(boxR, buffer);
             if (int.TryParse(buffer, out int parsed))
                 value = Mathf.Clamp(parsed, minPct, maxPct) / 100f;
 
             GUI.color = Color.gray;
-            Widgets.Label(pctRect, "%");
+            Widgets.Label(pctR, "%");
             GUI.color = Color.white;
-
             listing.Gap(2f);
         }
 
-        /// <summary>Hour row: 0–23, displays formatted AM/PM label alongside entry.</summary>
         private static void HourEntryRow(Listing_Standard listing, string label,
             ref float value, ref string buffer)
         {
-            Rect row = listing.GetRect(Text.LineHeight);
-            float boxWidth  = 36f;
-            float ampmWidth = 52f;
-            Rect labelRect = new Rect(row.x, row.y, row.width - boxWidth - ampmWidth - 8f, row.height);
-            Rect boxRect   = new Rect(row.xMax - boxWidth - ampmWidth - 4f, row.y, boxWidth, row.height);
-            Rect ampmRect  = new Rect(boxRect.xMax + 4f, row.y, ampmWidth, row.height);
+            Rect row       = listing.GetRect(Text.LineHeight);
+            float boxW     = 36f;
+            float ampmW    = 52f;
+            Rect labelR    = new Rect(row.x, row.y, row.width - boxW - ampmW - 8f, row.height);
+            Rect boxR      = new Rect(row.xMax - boxW - ampmW - 4f, row.y, boxW, row.height);
+            Rect ampmR     = new Rect(boxR.xMax + 4f, row.y, ampmW, row.height);
 
-            Widgets.Label(labelRect, label);
-            buffer = Widgets.TextField(boxRect, buffer);
+            Widgets.Label(labelR, label);
+            buffer = Widgets.TextField(boxR, buffer);
             if (int.TryParse(buffer, out int parsed))
                 value = Mathf.Clamp(parsed, 0, 23);
 
             GUI.color = Color.gray;
-            Widgets.Label(ampmRect, FormatHour(value));
+            Widgets.Label(ampmR, FormatHour(value));
             GUI.color = Color.white;
-
             listing.Gap(2f);
         }
 
-        private static string FormatHour(float hour)
+        public static string FormatHour(float hour)
         {
             int h = Mathf.FloorToInt(hour);
             if (h == 0)  return "12 AM";
@@ -288,7 +378,6 @@ namespace SmartCaravanTiming
             return (h - 12) + " PM";
         }
 
-        /// <summary>RAII helper that sets GUI.enabled for a block and restores it.</summary>
         private readonly struct DisabledBlock : System.IDisposable
         {
             private readonly bool _prev;
