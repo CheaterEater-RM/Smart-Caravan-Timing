@@ -259,13 +259,21 @@ namespace SmartCaravanTiming
             };
         }
 
+        private static readonly Texture2D IconPushOn       = LoadGizmo("UI/Gizmos/SCT_PushOn", TexCommand.SquadAttack);
+        private static readonly Texture2D IconArriveReady  = LoadGizmo("UI/Gizmos/SCT_ArriveReady", TexCommand.PauseCaravan);
+        private static readonly Texture2D IconNormalMode   = LoadGizmo("UI/Gizmos/SCT_NormalResting", TexCommand.Draft);
+
+        private static readonly Texture2D IconAlteredSchedule = LoadGizmo("UI/Gizmos/SCT_AlteredSchedule", TexCommand.PauseCaravan);
+        private static readonly Texture2D IconNoResting       = LoadGizmo("UI/Gizmos/SCT_NoResting", TexCommand.SquadAttack);
+        private static readonly Texture2D IconNormalResting    = LoadGizmo("UI/Gizmos/SCT_StandardSchedule", TexCommand.Draft);
+
         private static Texture2D GetModeIcon(CaravanMode mode)
         {
             switch (mode)
             {
-                case CaravanMode.PushOn:      return TexCommand.SquadAttack;
-                case CaravanMode.ArriveReady: return TexCommand.PauseCaravan;
-                default:                      return TexCommand.Draft;
+                case CaravanMode.PushOn:      return IconPushOn;
+                case CaravanMode.ArriveReady: return IconArriveReady;
+                default:                      return IconNormalMode;
             }
         }
 
@@ -273,10 +281,15 @@ namespace SmartCaravanTiming
         {
             switch (mode)
             {
-                case RestScheduleMode.AlteredSchedule: return TexCommand.PauseCaravan;
-                case RestScheduleMode.NoResting:        return TexCommand.SquadAttack;
-                default:                                return TexCommand.Draft;
+                case RestScheduleMode.AlteredSchedule: return IconAlteredSchedule;
+                case RestScheduleMode.NoResting:        return IconNoResting;
+                default:                                return IconNormalResting;
             }
+        }
+
+        private static Texture2D LoadGizmo(string path, Texture2D fallback)
+        {
+            return ContentFinder<Texture2D>.Get(path, false) ?? fallback;
         }
     }
 

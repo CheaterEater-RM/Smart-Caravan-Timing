@@ -23,6 +23,8 @@ namespace SmartCaravanTiming
         private List<bool> overrideValues = new List<bool>();
         private List<int> restScheduleKeys = new List<int>();
         private List<RestScheduleMode> restScheduleValues = new List<RestScheduleMode>();
+        private List<int> prepStartKeys = new List<int>();
+        private List<int> prepStartValues = new List<int>();
 
         /// <summary>Ticks before recreation is considered stalled. 5000 = 2 game-hours.</summary>
         private const int RecreationStallTicks = 5000;
@@ -385,6 +387,8 @@ namespace SmartCaravanTiming
                 LookMode.Value, LookMode.Value, ref overrideKeys, ref overrideValues);
             Scribe_Collections.Look(ref restScheduleMap, "sctRestScheduleMap",
                 LookMode.Value, LookMode.Value, ref restScheduleKeys, ref restScheduleValues);
+            Scribe_Collections.Look(ref prepStartTickMap, "sctPrepStartTickMap",
+                LookMode.Value, LookMode.Value, ref prepStartKeys, ref prepStartValues);
 
             if (modeMap == null) modeMap = new Dictionary<int, CaravanMode>();
             if (preparingMap == null) preparingMap = new Dictionary<int, bool>();
